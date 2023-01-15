@@ -1,0 +1,94 @@
+[
+  {
+    "x": 0,
+    "y": 0,
+    "w": 1400,
+    "h": 1752,
+    "unpressed": "#00000000",
+    "pressed": "#00000000",
+    "actions": [
+      {
+        "type": "TmpMode",
+        "mode": "left"
+      },
+      {
+        "type": "Trackpad"
+      }
+    ],
+    "showWhen": [
+      "!right"
+    ]
+  },
+  {
+    "x": 1400,
+    "y": 0,
+    "w": 1400,
+    "h": 1752,
+    "unpressed": "#00000000",
+    "pressed": "#00000000",
+    "actions": [
+      {
+        "type": "TmpMode",
+        "mode": "right"
+      },
+      {
+        "type": "Trackpad"
+      }
+    ],
+    "showWhen": [
+      "!left"
+    ]
+  },
+  {
+    "x": 2600,
+    "y": 0,
+    "w": 200,
+    "h": 1752,
+    "unpressed": "#30888888",
+    "pressed": "#50888888",
+    "actions": [
+      {
+        "type": "Button",
+        "button": 1
+      }
+    ],
+    "showWhen": [
+      "left"
+    ]
+  },
+  {
+    "x": 2390,
+    "y": 0,
+    "w": 200,
+    "h": 1752,
+    "unpressed": "#30888888",
+    "pressed": "#50888888",
+    "actions": [
+      {
+        "type": "Button",
+        "button": 2
+      }
+    ],
+    "showWhen": [
+      "left"
+    ]
+  },
+  {
+    "x": 2180,
+    "y": 0,
+    "w": 200,
+    "h": 1752,
+    "unpressed": "#30888888",
+    "pressed": "#50888888",
+    "actions": [
+      {
+        "type": "Button",
+        "button": 3
+      }
+    ],
+    "showWhen": [
+      "left"
+    ]
+  }
+]
+
