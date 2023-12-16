@@ -14,14 +14,14 @@ data class StylusMenu(
     var open by openState
     var selected by selectedState
 
-    enum class Selected(val code: Byte) {
-        LEFT(1.toByte()),
-        MIDDLE(2.toByte()),
-        RIGHT(3.toByte()),
+    enum class Selected(val code: Int) {
+        LEFT(1),
+        MIDDLE(2),
+        RIGHT(3),
     }
 }
 
-class MouseHandler(private val server: StableServer, private val menu: StylusMenu) {
+class MouseHandler(private val server: StableServer.Streaming, private val menu: StylusMenu) {
     var lastX: Int = -1
     var lastY: Int = -1
     var pressed: Pair<Int, Int>? = null

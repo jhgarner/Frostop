@@ -4,35 +4,37 @@ import android.media.MediaCodec
 import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.os.Build
+import android.util.Log
 import android.view.SurfaceView
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.referentialEqualityPolicy
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.nativeKeyCode
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.lifecycle.Lifecycle
 import com.example.remotedesktop.LifecycleObserver.observeAsState
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
-import java.net.SocketException
 import java.nio.ByteBuffer
 import kotlin.math.roundToInt
 
 class Desktop(
     private val settings: ServerSettings,
+    private val sessionInfo: SessionInfo,
     private val channel: Channel<PointerOrKeyEvent>,
-    private val panels: Array<Panel>
+    private val panels: List<Panel>
 ) {
     @Composable
     fun Create(modes: Modes) {
@@ -46,7 +48,7 @@ class Desktop(
             expanded = stylusMenu.open,
             onDismissRequest = { stylusMenu.open = false }
         ) {
-            for (button in StylusMenu.Selected.values()) {
+            for (button in StylusMenu.Selected.entries) {
                 DropdownMenuItem(
                     text = { Text(button.name) },
                     onClick = {
@@ -63,46 +65,37 @@ class Desktop(
             factory = {
                 view = SurfaceView(it)
                 view!!
-            }
+            },
         )
 
+        val currentView = view
+        val currentLifestate = lifeState
         LaunchedEffect(view, lifeState) {
             withContext(Dispatchers.IO) {
-                if (lifeState == Lifecycle.Event.ON_RESUME) {
-                    view?.let { view ->
-                        val server = StableServer(settings, view.width, view.height)
+                if (currentLifestate == LifecycleObserver.SystemState.Running) {
+                    currentView?.let { view ->
+                        val server =
+                            StableServer.connect(settings, view.width, view.height, sessionInfo)
                         val fingerHandler = FingerHandler(panels, modes, server)
                         val mouseHandler = MouseHandler(server, stylusMenu)
                         val pointerHandler = PointerHandler(fingerHandler, mouseHandler)
                         val inputHandler = InputHandler(pointerHandler, server)
-                        try {
-                            val streamer = async {
-                                try {
-                                    spawnStreamer(server, view)
-                                } catch (ex: SocketException) {
-                                    // We'll probably reconnect, so just let it happen
-                                    println(ex)
-                                    server.disconnect()
-                                }
-                            }
-                            val inputter = async {
-                                for (event in channel) {
-                                    inputHandler.handleInput(event)
-                                }
-                            }
-                            awaitAll(streamer, inputter)
-                        } catch (ex: RuntimeException) {
-                            println(ex)
-                            server.disconnect()
+                        val streamer = launch {
+                            catchingServerExceptions { spawnStreamer(server, view) }
                         }
+                        val inputter = launch {
+                            for (event in channel) {
+                                catchingServerExceptions { inputHandler.handleInput(event) }
+                            }
+                        }
+                        joinAll(streamer, inputter)
                     }
                 }
             }
         }
     }
 
-    private fun spawnStreamer(server: StableServer, view: SurfaceView) {
-        server.connect()
+    private fun spawnStreamer(server: StableServer.Streaming, view: SurfaceView) {
         var byteArray = server.get()
         val buffer = extractHevcParamSets(byteArray)
 
@@ -178,10 +171,18 @@ class Desktop(
         return ByteBuffer.wrap(output.toByteArray())
     }
 
+    private fun catchingServerExceptions(action: () -> Unit) {
+        try {
+            action()
+        } catch (ex: Exception) {
+            Log.e("Frostop", ex.message, ex)
+        }
+    }
+
     private fun <T> runRetrying(f: () -> T): Result<T> {
         var result: Result<T>? = null
         var retry = 0
-        while(result?.isSuccess != true && retry < 5) {
+        while (result?.isSuccess != true && retry < 5) {
             result = runCatching(f)
             retry += 1
         }

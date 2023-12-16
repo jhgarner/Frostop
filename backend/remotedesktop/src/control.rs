@@ -1,9 +1,4 @@
-use std::{
-    collections::HashMap,
-    io::{Read, Result},
-    net::TcpStream,
-    thread::{self, JoinHandle},
-};
+use std::collections::HashMap;
 
 use xcb::{
     x::{GetKeyboardMapping, Setup, WarpPointer, Window},
@@ -11,63 +6,40 @@ use xcb::{
     Connection, Xid,
 };
 
+use crate::{connection::Client, shared::ControlInput};
+use anyhow::{anyhow, Result};
+
 // Listens for things like mouse movement or key presses
-pub fn run_listener(mut stream: TcpStream) -> JoinHandle<Result<()>> {
-    thread::spawn::<_, Result<()>>(move || {
-        println!("Got client: {:?}", stream.peer_addr());
-        let (conn, screen_num) = xcb::Connection::connect(Some(":2")).unwrap();
-        let setup = conn.get_setup();
-        let keycode_map = get_keycode_map(&conn, &setup);
-        let root = setup.roots().nth(screen_num as usize).unwrap().root();
+pub fn run_listener(mut client: Client, display: String) -> Result<()> {
+    println!("Connecting with xcb");
+    let (conn, screen_num) = xcb::Connection::connect(Some(&display))?;
+    let setup = conn.get_setup();
+    let keycode_map = get_keycode_map(&conn, setup)?;
+    let root = setup
+        .roots()
+        .nth(screen_num as usize)
+        .ok_or(anyhow!("Could not find screen"))?
+        .root();
 
-        let mut prefix = [0];
-        loop {
-            stream.read_exact(&mut prefix)?;
-            match prefix[0] {
-                // Move cursor
-                0 => {
-                    let mut relative = [0];
-                    let mut x = [0; 4];
-                    let mut y = [0; 4];
-                    stream.read_exact(&mut relative)?;
-                    stream.read_exact(&mut x)?;
-                    stream.read_exact(&mut y)?;
-                    let window = if relative[0] == 1 {
-                        Window::none()
-                    } else {
-                        root
-                    };
-                    warp(&conn, window, i32::from_be_bytes(x), i32::from_be_bytes(y));
-                }
-                // Mouse
-                1 => {
-                    let mut params = [0; 2];
-                    stream.read_exact(&mut params)?;
-
-                    let detail = params[0];
-                    let event = params[1];
-
-                    input(&conn, event, detail);
-                }
-                // Key
-                2 => {
-                    let mut params = [0; 2];
-                    stream.read_exact(&mut params)?;
-
-                    let detail = keycode_map[params[0] as usize];
-                    let event = params[1];
-
-                    input(&conn, event, detail.try_into().unwrap());
-                }
-                _ => unimplemented!("Unsupported action"),
+    loop {
+        match client.read()? {
+            ControlInput::Cursor { x, y, relative } => {
+                let window = if relative { Window::none() } else { root };
+                warp(&conn, window, x, y)?;
+            }
+            ControlInput::MouseButton { detail, event } => {
+                input(&conn, event, detail)?;
+            }
+            ControlInput::Key { detail, event } => {
+                input(&conn, event, keycode_map[detail])?;
             }
         }
-    })
+    }
 }
 
-fn warp(conn: &Connection, root: Window, x: i32, y: i32) {
-    let x = x.try_into().unwrap();
-    let y = y.try_into().unwrap();
+fn warp(conn: &Connection, root: Window, x: i32, y: i32) -> Result<()> {
+    let x = x.try_into()?;
+    let y = y.try_into()?;
     let warp = WarpPointer {
         src_window: Window::none(),
         dst_window: root,
@@ -79,10 +51,10 @@ fn warp(conn: &Connection, root: Window, x: i32, y: i32) {
         dst_y: y,
     };
 
-    conn.send_and_check_request(&warp).unwrap();
+    Ok(conn.send_and_check_request(&warp)?)
 }
 
-fn input(conn: &Connection, event: u8, detail: u8) {
+fn input(conn: &Connection, event: u8, detail: u8) -> Result<()> {
     let warp = FakeInput {
         r#type: event,
         detail,
@@ -93,23 +65,23 @@ fn input(conn: &Connection, event: u8, detail: u8) {
         deviceid: 0,
     };
 
-    conn.send_and_check_request(&warp).unwrap();
+    Ok(conn.send_and_check_request(&warp)?)
 }
 
-fn get_keycode_map(conn: &Connection, setup: &Setup) -> Vec<usize> {
+fn get_keycode_map(conn: &Connection, setup: &Setup) -> Result<Vec<u8>> {
     let request = GetKeyboardMapping {
         first_keycode: setup.min_keycode(),
         count: setup.max_keycode() - setup.min_keycode() + 1,
     };
 
     let cookie = conn.send_request(&request);
-    let response = conn.wait_for_reply(cookie).unwrap();
+    let response = conn.wait_for_reply(cookie)?;
     let syms = response.keysyms();
     let skip = response.keysyms_per_keycode() as usize;
 
     let mut sym2code = HashMap::new();
     for (i, sym) in syms.iter().enumerate().filter(|(i, _)| i % skip == 0) {
-        sym2code.insert(sym, i / skip + setup.min_keycode() as usize);
+        sym2code.insert(sym, (i / skip + setup.min_keycode() as usize).try_into()?);
     }
 
     // This vec is a map from protocol key codes to x11 keycodes. The rust x11 library doesn't
@@ -165,13 +137,14 @@ fn get_keycode_map(conn: &Connection, setup: &Setup) -> Vec<usize> {
     // f1-f12
     codes.extend(0xffbe..=0xffc9);
 
-    codes
+    let result: Result<Vec<u8>> = codes
         .iter()
         .map(|sym| {
             sym2code
                 .get(sym)
-                .expect(&format!("Failed to get {} {:?}", sym, sym2code))
-                .clone()
+                .copied()
+                .ok_or(anyhow!("Failed to get {} {:?}", sym, sym2code))
         })
-        .collect()
+        .collect();
+    result
 }

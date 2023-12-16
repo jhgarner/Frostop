@@ -1,8 +1,12 @@
 bind = "0.0.0.0:11101"
-# Vglrun might require some setup. Check their docs if it doesn't work.
-desktop = ["vglrun", "-d", "/dev/dri/card0", "i3"]
 
-[envs]
+[default.envs]
 DISPLAY = ":2"
 # Probably only need this on Nixos (and will likely break things elsewhere)
-LD_LIBRARY_PATH = "/run/opengl-driver/lib/"
+LD_LIBRARY_PATH = "/run/opengl-driver/lib/:$LD_LIBRARY_PATH"
+
+[default]
+# Vglrun might require some setup. Check their docs if it doesn't work.
+desktop = ["vglrun", "-d", "/dev/dri/card0", "i3"]
+number = 2
+

@@ -12,16 +12,9 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard"
         android:theme="@style/Theme.Material3.DayNight"
         tools:targetApi="31">
-        <activity
-            android:name=".MacroActivity"
-            android:exported="false"
-            android:label="Macro Editor" />
-        <activity
-            android:name=".Remote"
-            android:configChanges="keyboardHidden"
-            android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true">

@@ -3,7 +3,7 @@ package com.example.remotedesktop
 import androidx.compose.ui.input.pointer.PointerInputChange
 import kotlin.math.roundToInt
 
-class FingerHandler(private val panels: Array<Panel>, private val modes: Modes, private val server: StableServer) {
+class FingerHandler(private val panels: List<Panel>, private val modes: Modes, private val server: StableServer.Streaming) {
     private val touches = HashMap<Long, Pair<Touch, Set<Panel>>>()
 
     fun handleFinger(event: PointerInputChange) {
