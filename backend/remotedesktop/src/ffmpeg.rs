@@ -65,7 +65,7 @@ fn create_hevc(bitrate: u32, fps: u8, width: u32, height: u32) -> Result<Video> 
     settings.set("preset", "p1");
     settings.set("tune", "ull");
     settings.set("b_ref_mode", "disabled");
-    settings.set("g", "1000");
+    settings.set("g", "10000");
     settings.set("zerolatency", "1");
     settings.set("delay", "0");
     Ok(video.open_as_with(hevc, settings)?)

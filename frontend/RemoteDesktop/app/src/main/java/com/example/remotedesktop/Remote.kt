@@ -5,7 +5,10 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -14,10 +17,10 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowInsetsControllerCompat
+import com.example.remotedesktop.App.Companion.inputChannel
 import com.google.accompanist.systemuicontroller.SystemUiController
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
-import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.runBlocking
 
 @Composable
 fun Remote(
@@ -27,7 +30,8 @@ fun Remote(
     navigateBack: () -> Unit,
 ) {
     val systemUiController: SystemUiController = rememberSystemUiController()
-    systemUiController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+    systemUiController.systemBarsBehavior =
+        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     systemUiController.isSystemBarsVisible = false
 
     BackHandler(enabled = true) {
@@ -35,12 +39,16 @@ fun Remote(
         systemUiController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
         navigateBack()
     }
-
     val panels = panelGroup.panels
 
     val dm = LocalContext.current.resources.displayMetrics
-    val channel = remember { Channel<PointerOrKeyEvent>(Channel.Factory.UNLIMITED) }
-    val desktop = remember { Desktop(ServerSettings(settings.fps, settings.bitrateMb, settings.scale), sessionInfo, channel, panels) }
+    val desktop = remember {
+        Desktop(
+            ServerSettings(settings.fps, settings.bitrateMb, settings.scale),
+            sessionInfo,
+            panels
+        )
+    }
     val modes = Modes(remember { mutableStateOf(emptySet()) })
     val requester = remember { FocusRequester() }
 
@@ -52,11 +60,12 @@ fun Remote(
             .onKeyEvent {
                 if (it.nativeKeyEvent.keyCode == KEYCODE_BACK) {
                     systemUiController.isSystemBarsVisible = true
-                    systemUiController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+                    systemUiController.systemBarsBehavior =
+                        WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
                     navigateBack();
                 } else {
                     runBlocking {
-                        channel.send(PointerOrKeyEvent.Key(it))
+                        inputChannel.send(PointerOrKeyEvent.Key(it))
                     }
                 }
                 true
@@ -68,7 +77,7 @@ fun Remote(
                             val pointerEvents = awaitPointerEvent(PointerEventPass.Main)
                             for (event in pointerEvents.changes) {
                                 runBlocking {
-                                    channel.send(
+                                    inputChannel.send(
                                         PointerOrKeyEvent.Pointer(
                                             event,
                                             pointerEvents.buttons
@@ -90,5 +99,6 @@ fun Remote(
     }
     LaunchedEffect(Unit) {
         requester.requestFocus()
+        requester.captureFocus()
     }
 }

@@ -26,6 +26,8 @@ data class App(
     companion object {
         private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "app")
         private val key = stringPreferencesKey("AppV1")
+        private var hasLoaded = false
+        val inputChannel = ResetableChannel<PointerOrKeyEvent>()
         var app = App()
         var host: String
             get() = app.hostRaw.value
@@ -50,6 +52,7 @@ data class App(
                     }
                 }
             }
+            hasLoaded = true
         }
 
         @Composable
@@ -62,9 +65,11 @@ data class App(
         }
 
         private fun save(context: Context) {
-            runBlocking {
-                context.dataStore.edit {
-                    it[key] = Json.encodeToString(app)
+            if (hasLoaded) {
+                runBlocking {
+                    context.dataStore.edit {
+                        it[key] = Json.encodeToString(app)
+                    }
                 }
             }
         }

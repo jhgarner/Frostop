@@ -6,13 +6,13 @@
 
     <application
         android:allowBackup="true"
+        android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|navigation|touchscreen|smallestScreenSize|uiMode|density|mnc|mcc|locale|fontScale|fontWeightAdjustment"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard"
         android:theme="@style/Theme.Material3.DayNight"
         tools:targetApi="31">
         <activity
@@ -24,6 +24,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <meta-data
+                android:name="com.samsung.android.keepalive.density"
+                android:value="true" />
             <meta-data
                 android:name="android.app.lib_name"
                 android:value="" />

@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
-import androidx.compose.material3.CardColors
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -40,7 +38,7 @@ fun MutList<Action>.NewAction() {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val actions = listOf("Trackpad", "Button", "Key", "Mode")
+            val actions = listOf("Trackpad", "Button", "Key", "Mode", "Keyboard")
             var selectedAction: Int? by remember { mutableStateOf(null) }
             var addAction: (() -> Unit)? by remember { mutableStateOf(null) }
             Column(
@@ -151,6 +149,16 @@ fun MutList<Action>.NewAction() {
                     } else {
                         null
                     }
+                }
+
+                4 -> {
+                    Text(
+                        modifier = Modifier.padding(8.dp),
+                        text = "Nothing else to configure",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                    addAction = { add(Action.Keyboard) }
                 }
             }
 

@@ -3,9 +3,7 @@ package com.example.remotedesktop
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -118,7 +116,7 @@ interface Selector<Item : Selectable, New> {
             if (targetState == PageState.None) {
                 slideInHorizontally { -it } togetherWith slideOutHorizontally { it }
             } else {
-                slideInVertically { it } togetherWith slideOutVertically { -it }
+                slideInHorizontally { it } togetherWith slideOutHorizontally { -it }
             }
         }) {
             val back = { pageState = PageState.None }

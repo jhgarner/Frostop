@@ -1,7 +1,14 @@
 package com.example.remotedesktop
 
 import android.view.KeyCharacterMap
-import android.view.KeyEvent
+import android.view.KeyEvent.KEYCODE_ALT_LEFT
+import android.view.KeyEvent.KEYCODE_ALT_RIGHT
+import android.view.KeyEvent.KEYCODE_CTRL_LEFT
+import android.view.KeyEvent.KEYCODE_DPAD_DOWN
+import android.view.KeyEvent.KEYCODE_DPAD_LEFT
+import android.view.KeyEvent.KEYCODE_DPAD_RIGHT
+import android.view.KeyEvent.KEYCODE_DPAD_UP
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import kotlinx.serialization.SerialName
@@ -13,7 +20,12 @@ import kotlin.math.sqrt
 @Serializable
 sealed interface Action {
     val name: String
-    fun handleMotion(touch: Touch?, modes: Modes, server: StableServer.Streaming)
+    fun handleMotion(
+        touch: Touch?,
+        modes: Modes,
+        server: StableServer.Streaming,
+        showKeyboard: () -> Unit
+    )
 
     @Serializable
     @SerialName("Trackpad")
@@ -22,7 +34,12 @@ sealed interface Action {
 
         @kotlinx.serialization.Transient
         private val velocityTracker = VelocityTracker()
-        override fun handleMotion(touch: Touch?, modes: Modes, server: StableServer.Streaming) {
+        override fun handleMotion(
+            touch: Touch?,
+            modes: Modes,
+            server: StableServer.Streaming,
+            showKeyboard: () -> Unit
+        ) {
             when (touch) {
                 is Moving -> {
                     velocityTracker.addPointerInputChange(touch.event)
@@ -43,7 +60,12 @@ sealed interface Action {
     @SerialName("Button")
     class Button(private val button: Int) : Action {
         override val name: String = "Button-$button"
-        override fun handleMotion(touch: Touch?, modes: Modes, server: StableServer.Streaming) {
+        override fun handleMotion(
+            touch: Touch?,
+            modes: Modes,
+            server: StableServer.Streaming,
+            showKeyboard: () -> Unit
+        ) {
             when (touch) {
                 null -> server.sendRelease(button)
                 else -> server.sendClick(button)
@@ -55,25 +77,33 @@ sealed interface Action {
     @SerialName("Key")
     class Key(private val key: String) : Action {
         override val name: String = "Key-$key"
-        override fun handleMotion(touch: Touch?, modes: Modes, server: StableServer.Streaming) {
-            val keyCode =
-                KeyCoder.toCode(
-                    when (key) {
-                        "Ctrl" -> KeyEvent.KEYCODE_CTRL_LEFT
-                        "Alt" -> KeyEvent.KEYCODE_ALT_LEFT
-                        "Win" -> KeyEvent.KEYCODE_ALT_RIGHT
-                        else -> {
-                            KeyCharacterMap.load(KeyCharacterMap.FULL)
-                                .getEvents(charArrayOf(key[0]))[0].keyCode
-                        }
+        override fun handleMotion(
+            touch: Touch?,
+            modes: Modes,
+            server: StableServer.Streaming,
+            showKeyboard: () -> Unit
+        ) {
+            val keyCodes =
+                when (key) {
+                    "Ctrl" -> listOf(KEYCODE_CTRL_LEFT)
+                    "Alt" -> listOf(KEYCODE_ALT_LEFT)
+                    "Win" -> listOf(KEYCODE_ALT_RIGHT)
+                    "Up" -> listOf(KEYCODE_DPAD_UP)
+                    "Down" -> listOf(KEYCODE_DPAD_DOWN)
+                    "Left" -> listOf(KEYCODE_DPAD_LEFT)
+                    "Right" -> listOf(KEYCODE_DPAD_RIGHT)
+                    else -> {
+                        KeyCharacterMap.load(KeyCharacterMap.FULL)
+                            .getEvents(key.toCharArray())
+                            .map(android.view.KeyEvent::getKeyCode)
                     }
-                )
+                }.map(KeyCoder::toCode)
             when (touch) {
                 is Still ->
-                    server.sendKeyPress(keyCode)
+                    keyCodes.forEach(server::sendKeyPress)
 
                 null ->
-                    server.sendKeyRelease(keyCode)
+                    keyCodes.forEach(server::sendKeyRelease)
 
                 else -> {}
             }
@@ -84,7 +114,12 @@ sealed interface Action {
     @SerialName("TmpMode")
     class TmpMode(private val mode: String) : Action {
         override val name: String = "Mode-$mode"
-        override fun handleMotion(touch: Touch?, modes: Modes, server: StableServer.Streaming) {
+        override fun handleMotion(
+            touch: Touch?,
+            modes: Modes,
+            server: StableServer.Streaming,
+            showKeyboard: () -> Unit
+        ) {
             when (touch) {
                 null -> modes.removeMode(mode)
                 else -> modes.addMode(mode)
@@ -92,17 +127,23 @@ sealed interface Action {
         }
     }
 
-//    @Serializable
-//    @SerialName("Keyboard")
-//    data object Keyboard : Action {
-//        override val name: String = "Keyboard"
-//
-//        override fun handleMotion(touch: Touch?, modes: Modes, server: StableServer.Streaming) {
-//            if (touch is Still) {
-//                LocalSoftwareKeyboardController.current?.show();
-//            }
-//        }
-//    }
+    @Serializable
+    @SerialName("Keyboard")
+    data object Keyboard : Action {
+        override val name: String = "Keyboard"
+
+        @OptIn(ExperimentalComposeUiApi::class)
+        override fun handleMotion(
+            touch: Touch?,
+            modes: Modes,
+            server: StableServer.Streaming,
+            showKeyboard: () -> Unit
+        ) {
+            if (touch == null) {
+                showKeyboard()
+            }
+        }
+    }
 }
 
 

@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Card
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -23,18 +22,20 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 @Serializable
 data class Panel(
@@ -59,8 +60,13 @@ data class Panel(
     var pressed: String by pressedRaw
     var showWhen: List<String> by showWhenRaw
 
+    @Transient
+    val extraCompose: MutableState<KeyboardHandler> = mutableStateOf(KeyboardHandler())
+
+    @OptIn(ExperimentalComposeUiApi::class)
     @Composable
     fun Create(modes: Modes, dm: DisplayMetrics) {
+        extraCompose.value.Fire()
         val interactionSource = remember { MutableInteractionSource() }
         val isPressed by interactionSource.collectIsPressedAsState()
 
@@ -93,7 +99,11 @@ data class Panel(
 
     fun handleTouch(touch: Touch?, modes: Modes, server: StableServer.Streaming) {
         for (action in actions) {
-            action.handleMotion(touch, modes, server)
+            action.handleMotion(
+                touch,
+                modes,
+                server
+            ) { extraCompose.component2()(KeyboardHandler()) }
         }
     }
 
@@ -193,25 +203,26 @@ data class Panel(
     }
 }
 
-@Preview
-@Composable
-private fun PreviewPanelConfig() {
-    val panel = Panel()
-    panel.actions.add(Action.Trackpad)
-    panel.actions.add(Action.Trackpad)
-    panel.actions.add(Action.Trackpad)
-    panel.actions.add(Action.Trackpad)
-    panel.actions.add(Action.Trackpad)
-    panel.Configure()
-}
-@Preview(device = "spec:parent=pixel_5,orientation=landscape")
-@Composable
-private fun PreviewPanelConfigTablet() {
-    val panel = Panel()
-    panel.actions.add(Action.Trackpad)
-    panel.actions.add(Action.Trackpad)
-    panel.actions.add(Action.Trackpad)
-    panel.actions.add(Action.Trackpad)
-    panel.actions.add(Action.Trackpad)
-    panel.Configure()
-}
+//@Preview
+//@Composable
+//private fun PreviewPanelConfig() {
+//    val panel = Panel()
+//    panel.actions.add(Action.Trackpad)
+//    panel.actions.add(Action.Trackpad)
+//    panel.actions.add(Action.Trackpad)
+//    panel.actions.add(Action.Trackpad)
+//    panel.actions.add(Action.Trackpad)
+//    panel.Configure()
+//}
+//
+//@Preview(device = "spec:parent=pixel_5,orientation=landscape")
+//@Composable
+//private fun PreviewPanelConfigTablet() {
+//    val panel = Panel()
+//    panel.actions.add(Action.Trackpad)
+//    panel.actions.add(Action.Trackpad)
+//    panel.actions.add(Action.Trackpad)
+//    panel.actions.add(Action.Trackpad)
+//    panel.actions.add(Action.Trackpad)
+//    panel.Configure()
+//}
